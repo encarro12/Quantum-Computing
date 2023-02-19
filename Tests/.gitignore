@@ -1,0 +1,8 @@
+# Ignore x64 file
+/x64
+
+# Ignore the .sln file
+*.sln
+
+# Ignore the hiden file .vs
+*.vs
