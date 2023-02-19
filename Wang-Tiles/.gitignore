@@ -1,0 +1,11 @@
+# Ignore the vs project
+/Wang-Tiles
+
+# Ignore the architecture
+/x64
+
+#
+*.sln
+
+#
+*.vs
