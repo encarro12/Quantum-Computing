@@ -57,6 +57,7 @@ int main() {
 	/*
 	*
 	*/
+	int a = 0;
 	tiles T2_map = tiles({
 		{1,-1,2,-1},
 		{1,-1,1,0},
