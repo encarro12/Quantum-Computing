@@ -2,14 +2,14 @@
 #include "tiles.h"
 using namespace std;
 
-const int M = 2;
-const int N = 4;
+const int M = 5;
+const int N = 6;
 
 using tiling = vector<vector<tile>>;
 
 /*
 */
-void tilings_backtracking(vector<tiling> & thao, tiling & R, const tiles& T_row,
+void tilings_backtracking(vector<tiling> & thao, tiling R, const tiles& T_row,
 	const tiles& T_other, int row, int column) {
 	vector<tile> valid = T_row.get_valid_tiles(R[row][column]);
 	for (tile t : valid) {
@@ -33,7 +33,7 @@ void tilings_backtracking(vector<tiling> & thao, tiling & R, const tiles& T_row,
 
 /*
 */
-void tilings(vector<tiling> & thao, tiling& R, const tiles& T2_map, const tiles& T2_3_map) {
+void tilings(vector<tiling> & thao, tiling R, const tiles& T2_map, const tiles& T2_3_map) {
 	tilings_backtracking(thao, R, T2_map, T2_3_map, 0, 0);
 	tilings_backtracking(thao, R, T2_3_map, T2_map, 0, 0);
 }
@@ -42,8 +42,8 @@ void tilings(vector<tiling> & thao, tiling& R, const tiles& T2_map, const tiles&
 * To analyze the stability of a boundary condition, this is the 
 only function that has to be modified.
 */
-tiling boundary_conditions() {
-	tiling R;
+void boundary_conditions(tiling & R, int option) {
+	// if option == 0, then exhaustive search
 	for (int row = 0; row < M; row++) {
 		vector<tile> tmp;
 		for (int column = 0; column < N; column++) {
@@ -51,7 +51,40 @@ tiling boundary_conditions() {
 		}
 		R.push_back(tmp);
 	}
-	return R;
+	// If option == 1, then fixed boundary condition
+	if(option == 1) {
+		// Upper edge
+		R[0][0].a = 1;
+		R[0][1].a = 0; /**/
+		R[0][2].a = 1;
+		R[0][3].a = 1;
+		R[0][4].a = 1;
+		R[0][5].a = 1;
+
+		/*
+		// Left edge
+		R[0][0].b = -1;
+		R[1][0].b = -1.0 / 3;
+		R[2][0].b = 0;
+		R[3][0].b = -1;
+		R[4][0].b = 0;
+
+		// Lower edge
+		R[4][0].c = 1;
+		R[4][1].c = 0;
+		R[4][2].c = 1;
+		R[4][3].c = 2;
+		R[4][4].c = 1;
+		R[4][5].c = 1;
+
+		// Right edge
+		R[0][5].d = -1;
+		R[1][5].d = 2.0/3;
+		R[2][5].d = -1.0/3;
+		R[3][5].d = -1;
+		R[4][5].d = 2.0/3;
+		*/
+	}
 }
 
 
@@ -85,7 +118,8 @@ int main() {
 
 	/*
 	*/
-	tiling R = boundary_conditions();
+	tiling R;
+	boundary_conditions(R, 1);
 
 	/*
 	*/
