@@ -22,6 +22,7 @@ tiling: M x N.
 */
 const int M = 20;
 const int N = 30;
+const int P = 10;
 
 /*
 Structure of a certain square tile with
@@ -150,6 +151,31 @@ void represent_bc(const tiling& R) {
 }
 
 /*
+*/
+void analyze_boundary_condition(tiling R, const valid_tiles& T_map_1,
+	const valid_tiles& T_map_2) {
+	// Initialize upper and left boundary conditions
+	vector<double> upper_bc, left_bc;
+	for (int i = 0; i < N; i++) {
+		upper_bc.push_back(R[0][i].a);
+		left_bc.push_back(R[i][0].b);
+	}
+	// Initialize tiling R to get only the boundary conditions
+	// and get the corresponding set thao.
+	vector<tiling> thao;
+	boundary_conditions(R, false, upper_bc, left_bc);
+	tilings(thao, R, T_map_1, T_map_2);
+
+	for (int sample = 0; sample < P; sample++) {
+		// Initializes boundary conditions
+		tiling Q;
+		boundary_conditions(Q, true, upper_bc, left_bc);
+		// Change the boundary condition randomly
+		// TODO
+	}
+}
+
+/*
 This is the heart of this script. 
 
 It contains the backtracking algorithm to obtain
@@ -172,17 +198,19 @@ Parameters:
 	or the partial solution R.
 */
 void tilings_backtracking(vector<tiling> & thao, tiling R, const valid_tiles& T_row,
-	const valid_tiles& T_other, int row, int column) {
+	const valid_tiles& T_other, const int row, const int column, const bool first) {
 	vector<tile> valid;
-	// Obtain the valid tiles given a boundary condition
-	if (T_row.count(R[row][column]) != 0)
+	// Obtain the valid tiles given a boundary condition and then shuffle them randomly
+	if (T_row.count(R[row][column]) != 0) {
 		valid = T_row.at(R[row][column]);
+		random_shuffle(valid.begin(), valid.end());
+	}
 	for (tile t : valid) {
 		R[row][column] = t;
 		// If it is a solution, then it is stored in thao
 		if (row == M - 1 && column == N - 1) {
-			represent_bc(R);
-			thao.push_back(R);
+			if (first)
+				analyze_boundary_condition(R, T_row, T_other);
 		}
 		// Otherwise
 		else {
@@ -214,9 +242,9 @@ Note that there are 2 different calls, depending
 whether you want to start by putting T2 or T3 tiles
 in the first row.
 */
-void tilings(vector<tiling> & thao, tiling R, const valid_tiles& T2_map, const valid_tiles& T2_3_map) {
-	tilings_backtracking(thao, R, T2_map, T2_3_map, 0, 0);
-	tilings_backtracking(thao, R, T2_3_map, T2_map, 0, 0);
+void tilings(vector<tiling> & thao, tiling & R, const valid_tiles& T2_map, const valid_tiles& T2_3_map) {
+	tilings_backtracking(thao, R, T2_map, T2_3_map, 0, 0, true);
+	tilings_backtracking(thao, R, T2_3_map, T2_map, 0, 0, true);
 }
 
 /*
@@ -232,7 +260,7 @@ Parameters:
 	on its respective side of the region R.
 */
 void boundary_conditions(tiling & R, const bool analyze, const vector<double> & upper,
-	const vector<double> & left, const vector<double> & lower, const vector<double> & right) {
+	const vector<double> & left) {
 	// Initialize boundary conditions
 	for (int row = 0; row < M; row++) {
 		vector<tile> tmp;
@@ -244,15 +272,10 @@ void boundary_conditions(tiling & R, const bool analyze, const vector<double> & 
 	// If the aim of the test is to analyze
 	// the boundary condition, then:
 	if (analyze) {
-		// Upper and Lower edge conditions
-		for (int column = 0; column < N; column++) {
-			R[0][column].a = upper[column];
-			R[M - 1][column].c = lower[column];
-		}
-		// Left and right edge conditions
-		for (int row = 0; row < M; row++) {
-			R[row][0].b = left[row];
-			R[row][N - 1].d = right[row];
+		// Upper and left edge conditions
+		for (int i = 0; i < N; i++) {
+			R[0][i].a = upper[i];
+			R[i][0].b = left[i];
 		}
 	}
 }
