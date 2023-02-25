@@ -2,6 +2,8 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <time.h>
+#include <cstdlib>
 using namespace std;
 
 /*
@@ -20,7 +22,7 @@ const bool search = false;
 Constants that set the size of the
 tiling: M x N.
 */
-const int N = 5;
+const int N = 6;
 const int P = 10;
 
 /*
@@ -95,6 +97,22 @@ Alias to simplify the data structures.
 using tiling = vector<vector<tile>>;
 using valid_tiles = unordered_map<tile, vector<tile>, hash_fn>;
 
+// Identificadores
+void mapping_bc_to_tiles(valid_tiles& map, const vector<tile>& tile_set);
+void boundary_conditions(tiling& R, const vector<double>& upper, const vector<double>& left, const vector<double>& right, const vector<double>& lower);
+vector<double> analyze_boundary_condition(tiling R, const valid_tiles& T_map_1, const valid_tiles& T_map_2);
+void tilings_backtracking(vector<tiling>& thao, tiling R, const valid_tiles& T_row,
+	const valid_tiles& T_other, const int row, const int column, const bool first, bool & found);
+void tilings(vector<tiling>& thao, tiling& R, const valid_tiles& T2_map, const valid_tiles& T2_3_map, const bool first);
+void initialize_tiling(tiling& R);
+double d(const tiling& R, const tiling& Q);
+double d(const vector<tiling>& thao, const vector<tiling>& gamma);
+
+int randomfunc(int j)
+{
+	return rand() % j;
+}
+
 /*
 Function that builds the valid_tile hash maps,
 one for each tile set which is divided the
@@ -133,39 +151,76 @@ void mapping_bc_to_tiles(valid_tiles& map, const vector<tile>& tile_set) {
 }
 
 /*
+To initiliaze the tiling R, i.e. to set the
+boundary conditions.
+
+Parameters:
+	- R: Tiling that will be modified
+	to set the boundary conditions.
+	- upper, left, lower, right: List
+	of double that represents the colours
+	of the boundary condition, each one
+	on its respective side of the region R.
 */
-void analyze_boundary_condition(tiling R, const valid_tiles& T_map_1,
+void boundary_conditions(tiling& R, const vector<double>& upper,
+	const vector<double>& left, const vector<double>& right, const vector<double>& lower) {
+	// Initialize boundary conditions
+	initialize_tiling(R);
+	// Upper and left edge conditions
+	for (int i = 0; i < N; i++) {
+		R[0][i].a = upper[i];
+		R[i][0].b = left[i];
+		// R[i][N - 1].d = right[i];
+		// R[N - 1][i].c = lower[i];
+	}
+}
+
+/*
+*/
+vector<double> analyze_boundary_condition(tiling R, const valid_tiles& T_map_1,
 	const valid_tiles& T_map_2) {
 	// Initialize upper and left boundary conditions
-	vector<double> upper_bc, left_bc;
+	vector<double> upper_bc, left_bc, lower_bc, right_bc;
 	for (int i = 0; i < N; i++) {
 		upper_bc.push_back(R[0][i].a);
 		left_bc.push_back(R[i][0].b);
+		lower_bc.push_back(R[N - 1][i].c);
+		right_bc.push_back(R[i][N - 1].d);
 	}
 	// Initialize tiling R to get only the boundary conditions
 	// and get the corresponding set thao.
 	vector<tiling> thao;
-	boundary_conditions(R, upper_bc, left_bc);
+	boundary_conditions(R, upper_bc, left_bc, right_bc, lower_bc);
 	tilings(thao, R, T_map_1, T_map_2, false);
 
-	int r_col, r_row, next;
-	tiling Q;
-	vector<tiling> gamma;
-	for (int sample = 0; sample < P; sample++) {
+	int r_col, r_row;
+	double next;
+	vector<double> distances;
+	for (int sample = 0; sample < P ; sample++) {
+		tiling Q;
+		vector<tiling> gamma;
 		// Initializes boundary conditions
-		boundary_conditions(Q, upper_bc, left_bc);
+		boundary_conditions(Q, upper_bc, left_bc, right_bc, lower_bc);
 		// Change the boundary condition randomly
+		/*
 		// Upper edge change
 		r_col = rand() % N;
-		do { next = UPPER[rand() % UPPER.size()]; } while (next != Q[0][r_col].a);
+		do { next = UPPER[rand() % UPPER.size()]; } while (next == Q[0][r_col].a);
 		Q[0][r_col].a = next;
+		*/
 		// Left edge change
 		r_row = rand() % N;
-		do { next = LEFT[rand() % LEFT.size()]; } while (next != Q[r_row][0].b);
+		do { next = LEFT[rand() % LEFT.size()]; } while (next == Q[r_row][0].b);
 		Q[r_row][0].b = next;
 		// Obtain the list of all valid tilings
 		tilings(gamma, Q, T_map_1, T_map_2, false);
+		double tmp = d(thao, gamma);
+		distances.push_back(tmp);
+		if (distances[sample] == INT_MAX) {
+			distances.pop_back(); sample--;
+		}
 	}
+	return distances;
 }
 
 /*
@@ -191,12 +246,12 @@ Parameters:
 	or the partial solution R.
 */
 void tilings_backtracking(vector<tiling> & thao, tiling R, const valid_tiles& T_row,
-	const valid_tiles& T_other, const int row, const int column, const bool first) {
-	vector<tile> valid; bool found = false;
+	const valid_tiles& T_other, const int row, const int column, const bool first, bool & found) {
+	vector<tile> valid;
 	// Obtain the valid tiles given a boundary condition and then shuffle them randomly
 	if (T_row.count(R[row][column]) != 0) {
 		valid = T_row.at(R[row][column]);
-		random_shuffle(valid.begin(), valid.end());
+		random_shuffle(valid.begin(), valid.end(), randomfunc);
 	}
 	for (tile t : valid) {
 		if (found) return;
@@ -204,10 +259,12 @@ void tilings_backtracking(vector<tiling> & thao, tiling R, const valid_tiles& T_
 		// If it is a solution, then it is stored in thao
 		if (row == N - 1 && column == N - 1) {
 			if (first) {
-				analyze_boundary_condition(R, T_row, T_other);
+				vector<double> d = analyze_boundary_condition(R, T_row, T_other);
 				found = true;
 			}
-			else thao.push_back(R);
+			else {
+				thao.push_back(R);
+			}
 		}
 		// Otherwise
 		else {
@@ -218,14 +275,21 @@ void tilings_backtracking(vector<tiling> & thao, tiling R, const valid_tiles& T_
 			// the solutions must be taken alternating
 			// T_row with T_other or keeping it the same way.
 			if (column == N - 1) {
-				tilings_backtracking(thao, R, T_other, T_row, row + 1, 0, first);
-				tilings_backtracking(thao, R, T_row, T_other, row + 1, 0, first);
+				int change = rand() % 2;
+				if (change) {
+					tilings_backtracking(thao, R, T_other, T_row, row + 1, 0, first, found);
+					tilings_backtracking(thao, R, T_row, T_other, row + 1, 0, first, found);
+				}
+				else {
+					tilings_backtracking(thao, R, T_row, T_other, row + 1, 0, first, found);
+					tilings_backtracking(thao, R, T_other, T_row, row + 1, 0, first, found);
+				}
 			}
 			// Otherwise, T_row must not swith with T_other
 			else {
 				// Set the boundary condition for the tile located to its right.
 				R[row][column + 1].b = t.d;
-				tilings_backtracking(thao, R, T_row, T_other, row, column + 1, first);
+				tilings_backtracking(thao, R, T_row, T_other, row, column + 1, first, found);
 			}
 		}
 	}
@@ -240,42 +304,23 @@ whether you want to start by putting T2 or T3 tiles
 in the first row.
 */
 void tilings(vector<tiling> & thao, tiling & R, const valid_tiles& T2_map, const valid_tiles& T2_3_map, const bool first) {
-	tilings_backtracking(thao, R, T2_map, T2_3_map, 0, 0, true);
-	tilings_backtracking(thao, R, T2_3_map, T2_map, 0, 0, true);
+	bool found = false;
+	tilings_backtracking(thao, R, T2_map, T2_3_map, 0, 0, first, found);
+	tilings_backtracking(thao, R, T2_3_map, T2_map, 0, 0, first, found);
 }
 
 /*
 */
 void initialize_tiling(tiling& R) {
+	if (!R.empty())
+		for (int row = 0; row < N; row++)
+			R.pop_back();
 	for (int row = 0; row < N; row++) {
 		vector<tile> tmp;
 		for (int column = 0; column < N; column++) {
 			tmp.push_back({ INT_MAX, INT_MAX, INT_MAX, INT_MAX });
 		}
 		R.push_back(tmp);
-	}
-}
-
-/*
-To initiliaze the tiling R, i.e. to set the 
-boundary conditions.
-
-Parameters:
-	- R: Tiling that will be modified
-	to set the boundary conditions.
-	- upper, left, lower, right: List
-	of double that represents the colours
-	of the boundary condition, each one
-	on its respective side of the region R.
-*/
-void boundary_conditions(tiling & R, const vector<double> & upper,
-	const vector<double> & left) {
-	// Initialize boundary conditions
-	initialize_tiling(R);
-	// Upper and left edge conditions
-	for (int i = 0; i < N; i++) {
-		R[0][i].a = upper[i];
-		R[i][0].b = left[i];
 	}
 }
 
@@ -315,6 +360,8 @@ double d(const vector<tiling>& thao, const vector<tiling>& gamma) {
 
 
 int main() {
+	srand(time(NULL));
+
 	/*
 	Builds the hash_map that maps boundary
 	conditions to a list of possible 
